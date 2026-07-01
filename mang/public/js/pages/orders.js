@@ -154,6 +154,8 @@ async function loadList(container) {
 async function renderDetail(container, id) {
   container.innerHTML = `<div class="loading-screen"><div class="spinner"></div></div>`;
   const order = await api.orders.get(id);
+  const tax = +order.tax || 0;
+  const subtotalExTax = Math.max(0, (+order.subtotal || 0) - tax);
 
   container.innerHTML = `
     <div class="detail-header">
@@ -195,10 +197,10 @@ async function renderDetail(container, id) {
             </table>
           </div>
           <div class="card-footer">
-            <div class="flex justify-between" style="font-size:13px;color:var(--text-2)"><span>Subtotal</span><span>${fmt(order.subtotal, order.currency)}</span></div>
+            <div class="flex justify-between" style="font-size:13px;color:var(--text-2)"><span>Subtotal excl. tax</span><span>${fmt(subtotalExTax, order.currency)}</span></div>
             ${order.shipping > 0 ? `<div class="flex justify-between mt-8" style="font-size:13px;color:var(--text-2)"><span>Shipping</span><span>${fmt(order.shipping, order.currency)}</span></div>` : ''}
             ${order.discount > 0 ? `<div class="flex justify-between mt-8" style="font-size:13px;color:var(--success)"><span>Discount</span><span>-${fmt(order.discount, order.currency)}</span></div>` : ''}
-            ${order.tax > 0 ? `<div class="flex justify-between mt-8" style="font-size:13px;color:var(--text-2)"><span>Tax</span><span>${fmt(order.tax, order.currency)}</span></div>` : ''}
+            ${tax > 0 ? `<div class="flex justify-between mt-8" style="font-size:13px;color:var(--text-2)"><span>Tax included</span><span>${fmt(tax, order.currency)}</span></div>` : ''}
             <hr class="divider" style="margin:10px 0">
             <div class="flex justify-between fw-bold"><span>Total</span><span style="font-size:16px">${fmt(order.total, order.currency)}</span></div>
           </div>
