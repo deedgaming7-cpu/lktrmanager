@@ -1,0 +1,14 @@
+# Dependencies — reinstalled on the server with `npm install`
+node_modules/
+
+# Local database & its lock/journal files — created fresh on the server
+store.db
+store.db-journal
+store.db-wal
+store.db-shm
+store.db.lock
+
+# Logs / editor / dev-preview
+*.log
+.DS_Store
+.claude/

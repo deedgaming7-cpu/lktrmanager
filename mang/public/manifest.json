@@ -1,0 +1,13 @@
+{
+  "name": "Store Manager",
+  "short_name": "Store",
+  "description": "Manage your store orders, products, customers and finances",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F5F2",
+  "theme_color": "#3D3D3D",
+  "orientation": "any",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
