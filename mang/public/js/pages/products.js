@@ -151,7 +151,7 @@ async function renderDetail(container, id) {
         <div class="card mb-16">
           <div class="card-header"><h3 class="card-title">Product Details</h3></div>
           <div class="card-body">
-            ${p.image_url ? `<img src="${p.image_url}" alt="${p.name}" style="width:100%;max-height:200px;object-fit:cover;border-radius:8px;margin-bottom:16px">` : ''}
+            ${p.image_url ? `<img src="${p.image_url}" alt="${p.name}" style="width:100%;max-width:350px;height:auto;object-fit:contain;border-radius:8px;margin-bottom:16px;display:block">` : ''}
             <div class="info-list">
               <div class="info-row"><span class="info-key">SKU</span><span class="info-val">${p.sku || '—'}</span></div>
               <div class="info-row"><span class="info-key">Category</span><span class="info-val">${p.category || '—'}</span></div>

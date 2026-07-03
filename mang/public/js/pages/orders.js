@@ -151,11 +151,59 @@ async function loadList(container) {
   });
 }
 
+function esc(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function parseAddress(value) {
+  if (!value) return null;
+  if (typeof value === 'object') return value;
+  try { return JSON.parse(value); }
+  catch { return { address1: value }; }
+}
+
+function addressLines(address) {
+  const a = parseAddress(address);
+  if (!a) return [];
+  return [
+    a.name,
+    a.company,
+    [a.address1, a.address2].filter(Boolean).join(' '),
+    [a.zip, a.city].filter(Boolean).join(' '),
+    a.province || a.province_code,
+    a.country || a.country_code,
+    a.phone,
+  ].filter(Boolean);
+}
+
+function addressBlock(title, address) {
+  const lines = addressLines(address);
+  if (!lines.length) return '';
+  return `
+    <div class="card mb-16">
+      <div class="card-header"><h3 class="card-title">${title}</h3></div>
+      <div class="card-body">
+        <div style="font-size:14px;line-height:1.7;color:var(--text-1)">
+          ${lines.map(line => `<div>${esc(line)}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 async function renderDetail(container, id) {
   container.innerHTML = `<div class="loading-screen"><div class="spinner"></div></div>`;
   const order = await api.orders.get(id);
   const tax = +order.tax || 0;
   const subtotalExTax = Math.max(0, (+order.subtotal || 0) - tax);
+  const customerAddress = order.customer ? {
+    address1: order.customer.address,
+    city: order.customer.city,
+    country: order.customer.country,
+    phone: order.customer.phone,
+  } : null;
 
   container.innerHTML = `
     <div class="detail-header">
@@ -222,6 +270,7 @@ async function renderDetail(container, id) {
             </div>
           </div>
         </div>
+        ${addressBlock('Shipping Address', order.shipping_address)}
         ${order.customer ? `
           <div class="card">
             <div class="card-header"><h3 class="card-title">Customer</h3></div>
@@ -230,6 +279,7 @@ async function renderDetail(container, id) {
                 <div class="info-row"><span class="info-key">Name</span><span class="info-val"><a href="#/customers/${order.customer.id}" style="color:var(--primary);font-weight:600">${order.customer.name}</a></span></div>
                 ${order.customer.email ? `<div class="info-row"><span class="info-key">Email</span><span class="info-val">${order.customer.email}</span></div>` : ''}
                 ${order.customer.phone ? `<div class="info-row"><span class="info-key">Phone</span><span class="info-val">${order.customer.phone}</span></div>` : ''}
+                ${addressLines(customerAddress).length ? `<div class="info-row"><span class="info-key">Address</span><span class="info-val">${addressLines(customerAddress).map(esc).join('<br>')}</span></div>` : ''}
               </div>
             </div>
           </div>` : order.customer_name ? `
