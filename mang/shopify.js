@@ -1,6 +1,8 @@
 const fetch = require('node-fetch');
 const { getDB } = require('./database');
 
+const SHOPIFY_API_VERSION = '2026-07';
+
 function getSettings() {
   const db = getDB();
   const rows = db.prepare("SELECT key, value FROM settings WHERE key LIKE 'shopify_%'").all();
@@ -12,12 +14,43 @@ function getSettings() {
   return settings;
 }
 
+async function refreshAccessToken(settings) {
+  const domain = settings.shopify_domain;
+  const clientId = settings.shopify_client_id;
+  const clientSecret = settings.shopify_client_secret;
+  if (!domain || !clientId || !clientSecret) return settings.shopify_token;
+
+  const res = await fetch(`https://${domain}/admin/oauth/access_token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+    }).toString(),
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.access_token) {
+    throw new Error(`Shopify token refresh failed ${res.status}: ${data.error_description || data.error || res.statusText}`);
+  }
+
+  settings.shopify_token = data.access_token;
+  const db = getDB();
+  db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)")
+    .run('shopify_token', JSON.stringify(data.access_token));
+  db.prepare("INSERT OR REPLACE INTO settings (key,value) VALUES (?,?)")
+    .run('shopify_token_expires_at', JSON.stringify(new Date(Date.now() + ((data.expires_in || 86399) * 1000)).toISOString()));
+
+  return data.access_token;
+}
+
 async function shopifyFetch(settings, endpoint) {
   const domain = settings.shopify_domain;
   const token = settings.shopify_token;
   if (!domain || !token) throw new Error('Shopify credentials not configured');
 
-  const url = `https://${domain}/admin/api/2024-01/${endpoint}`;
+  const url = `https://${domain}/admin/api/${SHOPIFY_API_VERSION}/${endpoint}`;
   const res = await fetch(url, {
     headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
   });
@@ -199,11 +232,13 @@ async function syncShopify() {
   const db = getDB();
   try {
     const settings = getSettings();
-    if (!settings.shopify_domain || !settings.shopify_token) {
+    const hasClientCredentials = settings.shopify_client_id && settings.shopify_client_secret;
+    if (!settings.shopify_domain || (!settings.shopify_token && !hasClientCredentials)) {
       return { success: false, message: 'Shopify credentials not configured' };
     }
 
     console.log('[Shopify] Syncing...');
+    await refreshAccessToken(settings);
     const customers = await syncCustomers(settings);
     const products = await syncProducts(settings);
     const orders = await syncOrders(settings);
@@ -227,7 +262,7 @@ function getShopifyStatus() {
   const lastLog = db.prepare('SELECT * FROM sync_log WHERE type=? ORDER BY created_at DESC LIMIT 1').get('shopify');
   const settings = getSettings();
   return {
-    configured: !!(settings.shopify_domain && settings.shopify_token),
+    configured: !!(settings.shopify_domain && (settings.shopify_token || (settings.shopify_client_id && settings.shopify_client_secret))),
     lastSync: lastLog || null
   };
 }
